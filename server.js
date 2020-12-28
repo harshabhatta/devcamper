@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const errorHandler = require('./middlewares/error');
 const fileupload = require('express-fileupload');
+const cookieParser = require('cookie-parser');
 
 // env variables
 dotenv.config({ path: './config/config.env' });
@@ -14,6 +15,7 @@ connectDB();
 // routes files
 const bootcamps = require('./routes/bootcamps');
 const courses = require('./routes/courses');
+const auth = require('./routes/auth');
 
 const PORT = process.env.PORT || 5000;
 
@@ -21,6 +23,9 @@ const app = express();
 
 // express body parser
 app.use(express.json());
+
+//cookie parser
+app.use(cookieParser());
 
 // fileupload middleware
 app.use(fileupload());
@@ -31,6 +36,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // routing the api calls
 app.use('/api/v1/bootcamps', bootcamps);
 app.use('/api/v1/courses', courses);
+app.use('/api/v1/auth', auth);
 
 // error handling middleware
 app.use(errorHandler);
