@@ -3,6 +3,7 @@ const Course = require('../models/Course');
 const Bootcamp = require('../models/Bootcamp');
 
 const asyncHandler = require('../middlewares/async');
+const advancedResults = require('../middlewares/advancedResults');
 
 //@desc      get all courses
 //routes     GET /api/v1/courses -> get all the courses
@@ -10,28 +11,18 @@ const asyncHandler = require('../middlewares/async');
 //@access    public
 
 exports.getCourses = asyncHandler(async (req, res, next) => {
-  let query;
-
-  // build query
   if (req.params.bootcampId) {
-    query = Course.find({
+    const courses = await Course.find({
       bootcamp: req.params.bootcampId,
     });
-  } else {
-    query = Course.find().populate({
-      path: 'bootcamp',
-      select: 'name description',
+    res.status(200).json({
+      success: true,
+      count: courses.length,
+      data: courses,
     });
+  } else {
+    res.status(200).json(res.advancedResults);
   }
-
-  //execute query
-  const courses = await query;
-
-  res.status(200).json({
-    success: true,
-    count: courses.length,
-    data: courses,
-  });
 });
 
 //@desc      get single course
