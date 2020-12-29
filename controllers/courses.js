@@ -1,9 +1,7 @@
 const ErrorResponse = require('../utils/errorResponse');
 const Course = require('../models/Course');
 const Bootcamp = require('../models/Bootcamp');
-
 const asyncHandler = require('../middlewares/async');
-const advancedResults = require('../middlewares/advancedResults');
 
 //@desc      get all courses
 //routes     GET /api/v1/courses -> get all the courses
