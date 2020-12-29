@@ -1,4 +1,6 @@
+const crypto = require('crypto');
 const ErrorResponse = require('../utils/errorResponse');
+const sendEmail = require('../utils/sendEmail');
 const User = require('../models/User');
 const asyncHandler = require('../middlewares/async');
 
@@ -45,6 +47,86 @@ exports.login = asyncHandler(async (req, res, next) => {
   sendTokenResponse(user, 200, res);
 });
 
+//@desc      logged in user
+//url        GET /api/v1/auth/me
+//@access    public
+exports.getMe = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    return next(new ErrorResponse('user not found', 404));
+  }
+  res.status(200).json({ success: true, data: user });
+});
+
+//@desc      forgot user password
+//url        POST /api/v1/auth/forgotpassword
+//@access    public
+exports.forgotPassword = asyncHandler(async (req, res, next) => {
+  const user = await User.findOne({ email: req.body.email });
+  if (!user) {
+    return next(new ErrorResponse('user not found', 404));
+  }
+  // get reset Token
+  const resetToken = user.getResetPasswordToken();
+  // update the user with the reset token
+  await user.save({ validateBeforeSave: false });
+
+  try {
+    const resetUrl = `${req.protocol}://${req.get(
+      'host'
+    )}/api/v1/auth/resetpassword/${resetToken}`;
+    const message = `you are recieving this email as you have requested for password reset. Please make a PUT request to ${resetUrl}`;
+
+    await sendEmail({
+      toEmail: user.email,
+      subject: 'password reset token',
+      message,
+    });
+    res
+      .status(200)
+      .json({ success: true, data: 'forgot password reset email sent' });
+  } catch (error) {
+    console.log(error);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    return next(new ErrorResponse('Error sending the email', 500));
+  }
+});
+
+//@desc      reset password
+//url        PUT /api/v1/auth/resetpassword/:resettoken
+//@access    public
+exports.resetPassword = asyncHandler(async (req, res, next) => {
+  // generate hashed token
+  const resetPasswordToken = crypto
+    .createHash('sha256')
+    .update(req.params.resettoken)
+    .digest('hex');
+
+  // find user by hashed token
+  const user = await User.findOne({
+    resetPasswordToken,
+    resetPasswordExpire: { $gt: Date.now() },
+  });
+
+  console.log(Date.now());
+
+  if (!user) {
+    return next(new ErrorResponse('invalid token or token expired', 500));
+  }
+
+  //reset password & clear reset token & expire
+  user.password = req.body.password;
+  user.resetPasswordExpire = undefined;
+  user.resetPasswordToken = undefined;
+
+  // save the details
+  await user.save();
+
+  // create token & send response with token in a cookie
+  sendTokenResponse(user, 200, res);
+});
+
 // create token and sending token in a cookie
 const sendTokenResponse = (user, statusCode, res) => {
   //create token
@@ -64,14 +146,3 @@ const sendTokenResponse = (user, statusCode, res) => {
     .cookie('token', token, options)
     .json({ success: true, token });
 };
-
-//@desc      logged in user
-//url        GET /api/v1/auth/me
-//@access    public
-exports.getMe = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.user.id);
-  if (!user) {
-    return next(new ErrorResponse('user not found', 404));
-  }
-  res.status(200).json({ success: true, data: user });
-});
